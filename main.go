@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"net"
@@ -12,8 +13,9 @@ import (
 
 // Server is structure for toml
 type Server struct {
-	IP   string `toml:"ip"`
-	Port int    `toml:"port"`
+	IP      string `toml:"ip"`
+	Port    int    `toml:"port"`
+	Network string `toml:"network"`
 }
 
 // Client is structure for toml
@@ -30,13 +32,15 @@ type Config struct {
 }
 
 var (
-	argIP   string
-	argPort int
+	argIP      string
+	argPort    int
+	argNetwork string
 )
 
 func init() {
 	flag.StringVar(&argIP, "ip", "", "IP address")
 	flag.IntVar(&argPort, "port", -1, "The service port")
+	flag.StringVar(&argNetwork, "network", "tcp", "Network type. tcp or udp")
 	flag.Parse()
 }
 
@@ -71,7 +75,7 @@ func main() {
 		log.Printf("[CLIENT] %s -> %s:%d\n", c.Name, c.IP, c.Port)
 	}
 
-	ln, err := net.Listen("tcp", fmt.Sprintf("%s:%d", config.Server.IP, config.Server.Port))
+	ln, err := net.Listen(argNetwork, fmt.Sprintf("%s:%d", config.Server.IP, config.Server.Port))
 
 	if err != nil {
 		log.Fatal(err)
@@ -82,13 +86,36 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		go handler(conn)
+		go handler(config, conn)
 	}
 }
 
-func handler(conn net.Conn) {
-	log.Printf("(%s,%s) -> (%s,%s)", conn.LocalAddr().Network(), conn.LocalAddr().String(), conn.RemoteAddr().Network(), conn.RemoteAddr().String())
+func handler(config Config, server net.Conn) {
+	log.Printf("[SERVER](%s,%s) -> (%s,%s)", server.LocalAddr().Network(), server.LocalAddr().String(), server.RemoteAddr().Network(), server.RemoteAddr().String())
 
-	conn.Write([]byte("NG"))
-	conn.Close()
+	for _, c := range config.Clients {
+		client, err := net.Dial(argNetwork, net.JoinHostPort(c.IP, fmt.Sprintf("%d", c.Port)))
+
+		if err != nil {
+			log.Fatal(err)
+		} else {
+			log.Printf("[CLIENT](%s,%s) -> (%s,%s)", client.LocalAddr().Network(), client.LocalAddr().String(), client.RemoteAddr().Network(), client.RemoteAddr().String())
+
+			go func() {
+				_, err := io.Copy(server, client)
+
+				if err != nil {
+					log.Fatal(err)
+				}
+			}()
+
+			_, err := io.Copy(client, server)
+
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			break
+		}
+	}
 }
