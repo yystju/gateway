@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
 	"io"
@@ -9,6 +10,17 @@ import (
 	"net"
 
 	toml "github.com/BurntSushi/toml"
+)
+
+const (
+	// PacketStart is the flag for the start of a packet.
+	PacketStart byte = 0x02
+
+	// PacketHead is the flag for the end of a packet head.
+	PacketHead byte = 0x01
+
+	// PacketEnd is the flag for the end of a packet.
+	PacketEnd byte = 0x03
 )
 
 // Server is structure for toml
@@ -35,12 +47,14 @@ var (
 	argIP      string
 	argPort    int
 	argNetwork string
+	argMode    string
 )
 
 func init() {
 	flag.StringVar(&argIP, "ip", "", "IP address")
 	flag.IntVar(&argPort, "port", -1, "The service port")
 	flag.StringVar(&argNetwork, "network", "tcp", "Network type. tcp or udp")
+	flag.StringVar(&argMode, "mode", "stream", "Mode: stream or packet")
 	flag.Parse()
 }
 
@@ -101,18 +115,50 @@ func handler(config Config, server net.Conn) {
 		} else {
 			log.Printf("[CLIENT](%s,%s) -> (%s,%s)", client.LocalAddr().Network(), client.LocalAddr().String(), client.RemoteAddr().Network(), client.RemoteAddr().String())
 
-			go func() {
-				_, err := io.Copy(server, client)
+			if "packet" == argMode {
+				var buff bytes.Buffer
+
+				b := make([]byte, 1024)
+
+				n, err := server.Read(b)
 
 				if err != nil {
 					log.Fatal(err)
 				}
-			}()
 
-			_, err := io.Copy(client, server)
+				n, err = buff.Write(b[0:n])
 
-			if err != nil {
-				log.Fatal(err)
+				if err != nil {
+					log.Fatal(err)
+				}
+
+				bbuf := buff.Bytes()
+
+				if end := bytes.IndexByte(bbuf, PacketEnd); end >= 0 {
+					start := bytes.IndexByte(bbuf, PacketStart)
+
+					if start >= 0 && end > start {
+						// packet := bbuf[start:end]
+
+						//TODO: send it...
+
+						//TODO: remove the packet from buff
+					}
+				}
+			} else {
+				go func() {
+					_, err := io.Copy(server, client)
+
+					if err != nil {
+						log.Fatal(err)
+					}
+				}()
+
+				_, err := io.Copy(client, server)
+
+				if err != nil {
+					log.Fatal(err)
+				}
 			}
 
 			break
