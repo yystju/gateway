@@ -120,29 +120,39 @@ func handler(config Config, server net.Conn) {
 
 				b := make([]byte, 1024)
 
-				n, err := server.Read(b)
+				for {
+					n, err := server.Read(b)
 
-				if err != nil {
-					log.Fatal(err)
-				}
+					if err != nil {
+						log.Fatal(err)
+						break
+					}
 
-				n, err = buff.Write(b[0:n])
+					if n < 0 {
+						break
+					}
 
-				if err != nil {
-					log.Fatal(err)
-				}
+					n, err = buff.Write(b[0:n])
 
-				bbuf := buff.Bytes()
+					if err != nil {
+						log.Fatal(err)
+					}
 
-				if end := bytes.IndexByte(bbuf, PacketEnd); end >= 0 {
-					start := bytes.IndexByte(bbuf, PacketStart)
+					line, err := buff.ReadString('\003')
 
-					if start >= 0 && end > start {
-						// packet := bbuf[start:end]
+					bbuf := []byte(line)
 
-						//TODO: send it...
+					startIndex := bytes.IndexByte(bbuf, PacketStart)
+					headIndex := bytes.IndexByte(bbuf, PacketHead)
 
-						//TODO: remove the packet from buff
+					log.Printf(">> startIndex : %d, headIndex : %d", startIndex, headIndex)
+
+					if headIndex > startIndex && startIndex >= 0 {
+						packet := bbuf[startIndex:]
+
+						log.Printf("packet : %s", string(packet))
+
+						client.Write([]byte(packet))
 					}
 				}
 			} else {
