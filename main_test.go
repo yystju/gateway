@@ -30,7 +30,7 @@ func TestRegister(t *testing.T) {
 
 	//增加check。
 	check := new(consulapi.AgentServiceCheck)
-	check.HTTP = fmt.Sprintf("http://%s:%d%s", registration.Address, registration.Port, "/check")
+	check.HTTP = fmt.Sprintf("http://%s:%d%s", registration.Address, registration.Port, "/index.html")
 	//设置超时 5s。
 	check.Timeout = "5s"
 	//设置间隔 5s。

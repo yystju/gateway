@@ -23,26 +23,6 @@ const (
 	PacketEnd byte = 0x03
 )
 
-// Server is structure for toml
-type Server struct {
-	IP      string `toml:"ip"`
-	Port    int    `toml:"port"`
-	Network string `toml:"network"`
-}
-
-// Client is structure for toml
-type Client struct {
-	Name string `toml:"name"`
-	IP   string `toml:"ip"`
-	Port int    `toml:"port"`
-}
-
-// Config is structure for toml
-type Config struct {
-	Server  Server   `toml:"server"`
-	Clients []Client `toml:"client"`
-}
-
 var (
 	argIP      string
 	argPort    int
@@ -52,13 +32,33 @@ var (
 
 func init() {
 	flag.StringVar(&argIP, "ip", "", "IP address")
-	flag.IntVar(&argPort, "port", -1, "The service port")
+	flag.IntVar(&argPort, "port", 1234, "The service port")
 	flag.StringVar(&argNetwork, "network", "tcp", "Network type. tcp or udp")
 	flag.StringVar(&argMode, "mode", "stream", "Mode: stream or packet")
 	flag.Parse()
 }
 
 func main() {
+	log.Println("[MENTOS GATEWAY]")
+
+	f, err := ioutil.ReadFile("config.toml")
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	var config Config
+
+	_, err = toml.Decode(string(f), &config)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	RegisterService("gateway", "node-001", argPort, config.Server.CheckPort)
+}
+
+func main_old() {
 	log.Println("[MENTOS GATEWAY]")
 
 	f, err := ioutil.ReadFile("config.toml")

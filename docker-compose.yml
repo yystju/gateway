@@ -1,0 +1,32 @@
+version: '3.7'
+services:
+  consul:
+    image: consul:latest
+    container_name: consul
+    networks:
+      - mentos
+    ports:
+      - "8500:8500"
+  gateway:
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    image: mentos/gateway:latest
+    container_name: gateway
+    hostname: gateway
+    networks:
+      - mentos
+    ports:
+      - "1234:1234"
+#    extra_hosts:
+#      - "db:192.168.31.100"
+#    volumes:
+#      - /var/log:/var/log
+#      - /tmp
+networks:
+  mentos:
+    ipam:
+      driver: default
+      config:
+        - subnet: "192.168.2.0/24"
+        - subnet: "2001:3984:3990::/64"
